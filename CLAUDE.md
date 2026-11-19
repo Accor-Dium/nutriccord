@@ -189,13 +189,15 @@ push/merge a main ──► release.yml:
 - Probar localmente qué versión saldría: `npm run release:dry` (requiere Node ≥ 26.13 por
   semantic-release; en CI ya se usa Node 26).
 - **Configuración pendiente (una sola vez, la hace un admin):**
-  1. Crear cuenta/organización en [expo.dev](https://expo.dev) y en local correr
-     `npx eas-cli@latest login` y `npx eas-cli@latest init` (agrega `extra.eas.projectId` a
-     `app.json`; commitearlo).
+  1. ✅ Hecho (2026-11-18): proyecto `@accor-dium/Nutriccord` en
+     [expo.dev](https://expo.dev/accounts/accor-dium/projects/Nutriccord); `extra.eas.projectId`
+     y `owner` ya están en `app.json`.
   2. Crear un access token en expo.dev → *Access tokens* y guardarlo en GitHub como secret
      `EXPO_TOKEN` (repo → Settings → Secrets and variables → Actions). Sin él, el release se
      publica pero el build se omite con un warning.
-  3. Firma Android: en el primer `eas build` EAS genera y guarda el keystore (conservarlo).
+  3. Firma Android: el keystore se genera en un primer `eas build` **interactivo** (local:
+     `npx eas-cli@latest build -p android --profile production`), porque en modo
+     `--non-interactive` (CI) EAS no puede crearlo. Queda guardado en EAS para los builds de CI.
   4. Repo → Settings → Actions → General → *Workflow permissions*: "Read and write".
   5. Protección de `main`: exigir que pase el check **CI / Lint y typecheck**. Si se exige PR
      para todo push, permitir que `github-actions[bot]` haga bypass, porque semantic-release
@@ -240,7 +242,10 @@ registran decisiones y contexto que no caben en un mensaje de commit.)
   - Versión inicial `0.1.0` (tag `v0.1.0`).
   - GitHub Actions: `ci.yml` (lint + typecheck en PRs) y `release.yml` (semantic-release +
     EAS Build Android en cada push a `main`). `eas.json` con perfiles development/preview/production.
-  - Pendiente de configurar: proyecto EAS (`eas init`) y secret `EXPO_TOKEN`.
+  - Proyecto EAS creado: `@accor-dium/Nutriccord`
+    (projectId `e2881d3d-5226-419d-9c04-4b3aebb62fd4`, owner `accor-dium`).
+  - Identificador de app: `com.accordium.nutriccord` (Android `package` e iOS `bundleIdentifier`).
+    **No cambiarlo** una vez publicada la app en tiendas.
 
 - **2026-11-18 — SMAE y repo remoto (Claude Code)**
   - Se adopta el Sistema Mexicano de Alimentos Equivalentes (SMAE, 5a ed.) como referencia

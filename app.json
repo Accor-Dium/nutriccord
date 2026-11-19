@@ -8,9 +8,11 @@
     "scheme": "nutriccord",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.accordium.nutriccord",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.accordium.nutriccord",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +39,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e2881d3d-5226-419d-9c04-4b3aebb62fd4"
+      }
+    },
+    "owner": "accor-dium"
   }
 }
