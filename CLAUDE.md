@@ -56,6 +56,11 @@ src/
   constants/theme.ts  # colores (light/dark, incluye `accent`), spacing, fuentes
   hooks/            # useTheme, useColorScheme
   lib/calories.ts   # lógica pura de cálculo (BMR, TDEE, meta, sumas de macros)
+  lib/semver.ts     # comparar versiones SemVer
+  lib/native-release.ts # último GitHub Release con APK (aviso de versión nativa)
+  hooks/use-app-updates.ts      # detección de OTA + versión nativa nueva
+  components/update-banner.tsx  # banner "Reiniciar" / "Descargar"
+  constants/app.ts  # GITHUB_REPO, IOS_STORE_URL, intervalo de revisión
   data/foods.ts     # catálogo semilla + perfil/registros MOCK
   data/smae.ts      # grupos del Sistema Mexicano de Alimentos Equivalentes (Tabla 2)
   types/nutrition.ts# tipos de dominio (UserProfile, Food, FoodEntry, Macros…)
@@ -180,7 +185,11 @@ push/merge a main ──► release.yml:
     2. semantic-release                 ── calcula versión, actualiza app.json/package.json/
                                            CHANGELOG.md, commit "chore(release): vX.Y.Z [skip ci]",
                                            tag vX.Y.Z y GitHub Release
-    3. build-android (si hubo release)  ── `eas build --profile production` → APK adjunto al Release
+    3a. ota-update (si hubo release)    ── `eas update --channel production` (Android + iOS)
+    3b. build-android (si hubo release) ── solo si no existe build para el runtime (fingerprint)
+                                           actual: `eas build --profile production` → APK
+                                           adjunto al Release. Si existe, anota en el Release
+                                           que la versión llega por OTA.
 ```
 
 - Archivos: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.releaserc.json`,
@@ -192,9 +201,8 @@ push/merge a main ──► release.yml:
   1. ✅ Hecho (2026-11-18): proyecto `@accor-dium/Nutriccord` en
      [expo.dev](https://expo.dev/accounts/accor-dium/projects/Nutriccord); `extra.eas.projectId`
      y `owner` ya están en `app.json`.
-  2. Crear un access token en expo.dev → *Access tokens* y guardarlo en GitHub como secret
-     `EXPO_TOKEN` (repo → Settings → Secrets and variables → Actions). Sin él, el release se
-     publica pero el build se omite con un warning.
+  2. ✅ Hecho (2026-11-18): secret `EXPO_TOKEN` en GitHub (access token de expo.dev). Sin él,
+     el release se publica pero la OTA y el build se omiten con un warning.
   3. ✅ Hecho (2026-11-18): keystore de Android generado y guardado en los servidores de EAS
      (credenciales remotas) con el primer build. No borrarlo: sin él no se pueden publicar
      actualizaciones de la app en Google Play.
@@ -205,6 +213,34 @@ push/merge a main ──► release.yml:
 - Builds: perfil `production` genera **APK** (instalable directo). Para Google Play cambiar
   `android.buildType` a `app-bundle` y usar `eas submit`. iOS requiere cuenta de Apple
   Developer; agregar job `--platform ios` cuando exista.
+
+## Actualizaciones de la app (OTA + aviso de versión nativa)
+
+La app se actualiza sola; nadie debería tener que bajar el APK a mano en cada release.
+
+| Tipo de cambio | Cómo llega al usuario | Android | iOS |
+|---|---|---|---|
+| Solo JS / estilos / assets (lo normal) | **OTA** con EAS Update (`expo-updates`), canal `production` | ✅ automático | ✅ automático |
+| Cambio nativo (librería nativa nueva, SDK, permisos, `app.json` nativo, íconos) | **Build nueva** | Banner "Nueva versión X disponible → Descargar" (APK del GitHub Release) | App Store / TestFlight (cuando exista; `IOS_STORE_URL`) |
+
+- **Runtime version = `fingerprint`** (`app.json > runtimeVersion.policy`). Es un hash del
+  código/config **nativos**; NO depende de `expo.version`. Así una OTA llega a todas las builds
+  con el mismo nativo aunque la versión SemVer suba. **No cambiar a `appVersion`**: como el
+  pipeline sube la versión en cada release, ninguna OTA llegaría a builds instaladas.
+- Flujo en la app (`src/hooks/use-app-updates.ts`, `src/components/update-banner.tsx`):
+  al abrir y al volver a primer plano (máx. 1 vez/hora) revisa OTA → la descarga en segundo
+  plano → banner "Actualización lista → Reiniciar". En Android además consulta la API pública de
+  GitHub Releases (`src/lib/native-release.ts`) y compara el último Release **con APK** contra
+  `Application.nativeApplicationVersion` (la versión del APK instalado; no cambia con OTA).
+- No hace nada en desarrollo (`__DEV__`), Expo Go ni web.
+- El repo debe seguir **público** para que la app pueda leer los Releases sin token
+  (`src/constants/app.ts > GITHUB_REPO`). Límite de la API sin token: 60 req/h por IP.
+- **iOS:** recibe OTA igual que Android. Para versiones nativas falta cuenta de Apple Developer,
+  builds iOS y `IOS_STORE_URL`; la App Store / TestFlight ya notifican sus propias actualizaciones.
+- Probar una OTA en un build release: cerrar la app por completo y reabrir; puede tomar
+  **hasta dos arranques en frío** (uno descarga, el siguiente aplica) o usar el botón "Reiniciar".
+- Las builds anteriores a `expo-updates` (el APK de `v0.1.0`) **no** reciben OTA ni ven el
+  banner: hay que instalar a mano, una sola vez, el primer APK que ya lo incluya.
 
 ## Convenciones
 
@@ -236,6 +272,14 @@ push/merge a main ──► release.yml:
 Formato: `AAAA-MM-DD — autor — descripción`. Lo más reciente arriba.
 (Desde 2026-11-18 el detalle por versión se genera también en `CHANGELOG.md`; aquí se
 registran decisiones y contexto que no caben en un mensaje de commit.)
+
+- **2026-11-18 — Actualizaciones automáticas (Claude Code)**
+  - `expo-updates` + EAS Update (canales development/preview/production en `eas.json`),
+    `updates.url` en `app.json`. Runtime policy `fingerprint` (decisión: ver sección
+    "Actualizaciones de la app").
+  - `expo-application` para leer la versión nativa instalada.
+  - Banner in-app: OTA lista → Reiniciar; versión nativa nueva (Android) → Descargar APK.
+  - Pipeline: job `ota-update` en cada release; `build-android` solo si cambió el runtime nativo.
 
 - **2026-11-18 — Versionamiento y pipeline (Claude Code)**
   - Directiva SemVer 2.0.0 + Conventional Commits (sección "Versionamiento").

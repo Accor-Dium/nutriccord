@@ -5,7 +5,12 @@ name: Release
 #   2. semantic-release calcula la versión SemVer a partir de los commits
 #      (Conventional Commits), actualiza package.json/app.json/CHANGELOG.md,
 #      crea el tag vX.Y.Z y el GitHub Release.
-#   3. Si hubo release nueva, EAS Build compila el APK de Android y se adjunta al Release.
+#   3. Si hubo release nueva:
+#      a. ota-update: publica una actualización OTA (EAS Update) en el canal "production"
+#         para Android e iOS. Las apps instaladas compatibles la descargan solas.
+#      b. build-android: si el runtime nativo (fingerprint) cambió y no existe build para él,
+#         compila un APK nuevo con EAS y lo adjunta al Release (la app avisa para descargarlo).
+#         Si no cambió, no se compila nada: la OTA basta.
 on:
   push:
     branches: [main]
@@ -48,22 +53,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
-  build-android:
-    name: Build Android (EAS)
+  ota-update:
+    name: Publicar OTA (EAS Update)
     needs: release
     if: needs.release.outputs.version != ''
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       VERSION: ${{ needs.release.outputs.version }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Verificar EXPO_TOKEN
         if: env.EXPO_TOKEN == ''
-        run: |
-          echo "::warning::Falta el secret EXPO_TOKEN; se omite el build. Ver CLAUDE.md > Pipeline."
+        run: echo "::warning::Falta el secret EXPO_TOKEN; se omite la OTA. Ver CLAUDE.md > Pipeline."
 
       - uses: actions/checkout@v7
         if: env.EXPO_TOKEN != ''
@@ -85,15 +86,75 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: EAS build (production, Android)
+      - name: eas update (production)
         if: env.EXPO_TOKEN != ''
+        run: |
+          eas update --channel production --environment production --platform all \
+            --message "v${VERSION}" --non-interactive
+
+  build-android:
+    name: Build Android (EAS) si cambió el runtime nativo
+    needs: release
+    if: needs.release.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      VERSION: ${{ needs.release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Verificar EXPO_TOKEN
+        if: env.EXPO_TOKEN == ''
+        run: echo "::warning::Falta el secret EXPO_TOKEN; se omite el build. Ver CLAUDE.md > Pipeline."
+
+      - uses: actions/checkout@v7
+        if: env.EXPO_TOKEN != ''
+        with:
+          ref: v${{ env.VERSION }}
+
+      - uses: actions/setup-node@v7
+        if: env.EXPO_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: env.EXPO_TOKEN != ''
+        run: npm ci
+
+      - uses: expo/expo-github-action@v9
+        if: env.EXPO_TOKEN != ''
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: ¿Existe ya un build para este runtime?
+        id: runtime
+        if: env.EXPO_TOKEN != ''
+        run: |
+          RUNTIME=$(npx expo-updates runtimeversion:resolve --platform android | jq -r '.runtimeVersion')
+          echo "runtime=$RUNTIME" >> "$GITHUB_OUTPUT"
+          COUNT=$(eas build:list --platform android --channel production --runtime-version "$RUNTIME" \
+            --status finished --limit 1 --json --non-interactive | jq 'length')
+          echo "Runtime nativo: $RUNTIME (builds existentes: $COUNT)"
+          if [ "$COUNT" -gt 0 ]; then echo "needed=false" >> "$GITHUB_OUTPUT"; else echo "needed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: EAS build (production, Android)
+        if: env.EXPO_TOKEN != '' && steps.runtime.outputs.needed == 'true'
         run: |
           eas build --platform android --profile production --non-interactive --wait --json > build.json
           cat build.json
 
       - name: Adjuntar APK al GitHub Release
-        if: env.EXPO_TOKEN != ''
+        if: env.EXPO_TOKEN != '' && steps.runtime.outputs.needed == 'true'
         run: |
           URL=$(jq -r '.[0].artifacts.buildUrl' build.json)
           curl -fsSL "$URL" -o "nutriccord-v${VERSION}.apk"
           gh release upload "v${VERSION}" "nutriccord-v${VERSION}.apk" --clobber
+
+      - name: Anotar en el Release que llega por OTA
+        if: env.EXPO_TOKEN != '' && steps.runtime.outputs.needed == 'false'
+        run: |
+          gh release view "v${VERSION}" --json body -q .body > notes.md
+          printf '\n\n> 📲 Esta versión no tiene cambios nativos: se instala sola por actualización OTA.\n> Si aún no tienes la app, descarga el APK del último Release que lo incluya.\n' >> notes.md
+          gh release edit "v${VERSION}" --notes-file notes.md
