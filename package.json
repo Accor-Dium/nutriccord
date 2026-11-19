@@ -1,6 +1,6 @@
 {
   "name": "nutriccord",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/ui": "~58.0.29",
@@ -28,9 +28,14 @@
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
     "@types/react": "~19.3.0",
+    "conventional-changelog-conventionalcommits": "^10.4.1",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "semantic-release": "^25.0.9",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -39,7 +44,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release:dry": "semantic-release --dry-run --no-ci"
   },
   "private": true
 }

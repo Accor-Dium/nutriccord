@@ -1,0 +1,33 @@
+name: CI
+
+# Verifica que el código sea "funcional": lint + typecheck.
+# Corre en cada PR hacia main y la reutiliza el workflow de release.
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint y typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # expo-env.d.ts está en .gitignore (lo genera `expo start`); tsc lo necesita.
+      - name: Generar expo-env.d.ts
+        run: echo '/// <reference types="expo/types" />' > expo-env.d.ts
+
+      - run: npm run lint
+      - run: npm run typecheck

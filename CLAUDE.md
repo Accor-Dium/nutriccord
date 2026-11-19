@@ -37,6 +37,7 @@ npm run lint           # ESLint (expo lint)
 npm run typecheck      # tsc --noEmit
 npx expo install <pkg> # SIEMPRE usar esto para agregar dependencias
 npx expo-doctor        # diagnosticar dependencias/config
+npm run release:dry    # simular qué versión generaría el pipeline (Node >= 26.13)
 ```
 
 Antes de dar una tarea por terminada: `npm run lint` y `npm run typecheck`.
@@ -59,6 +60,10 @@ src/
   data/smae.ts      # grupos del Sistema Mexicano de Alimentos Equivalentes (Tabla 2)
   types/nutrition.ts# tipos de dominio (UserProfile, Food, FoodEntry, Macros…)
 assets/             # íconos, splash, imágenes
+scripts/sync-app-version.js  # sincroniza versión en app.json y package.json (release)
+.github/workflows/  # ci.yml y release.yml (pipeline)
+.releaserc.json     # configuración de semantic-release
+eas.json            # perfiles de build de EAS
 ```
 
 Alias de import: `@/*` → `src/*`, `@/assets/*` → `assets/*`.
@@ -133,6 +138,72 @@ embebido sale ilegible. Lo que funciona: extraer de cada página la capa de text
 grises de las tablas), rotar 180° y leer las imágenes. La Tabla 2 está en la página 13 del PDF
 (página 11 impresa); las listas de alimentos empiezan alrededor de la página 16.
 
+## Versionamiento (SemVer 2.0.0) — OBLIGATORIO
+
+Toda build/release lleva una versión **[Semantic Versioning 2.0.0](https://semver.org/lang/es/)**
+`MAYOR.MENOR.PARCHE`, determinada por el **nivel de cambio**:
+
+| Nivel | Cuándo | Ejemplo |
+|---|---|---|
+| **MAYOR** | Cambio incompatible: rompe datos guardados, flujos o APIs existentes | `1.4.2 → 2.0.0` |
+| **MENOR** | Funcionalidad nueva compatible hacia atrás | `1.4.2 → 1.5.0` |
+| **PARCHE** | Corrección de bugs compatible, sin funcionalidad nueva | `1.4.2 → 1.4.3` |
+
+- Mientras la app esté en desarrollo inicial la versión es **0.y.z** (empezó en `0.1.0`).
+  En 0.x un cambio incompatible sube MENOR. Se pasa a `1.0.0` con la primera versión pública
+  estable, mediante un commit con `BREAKING CHANGE:` y `"major"` explícito (ver abajo).
+- **La versión NO se edita a mano.** La calcula el pipeline a partir de los mensajes de commit,
+  que deben seguir **[Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)**:
+
+| Commit | Efecto en la versión |
+|---|---|
+| `fix: ...` / `perf: ...` | PARCHE |
+| `feat: ...` | MENOR |
+| `feat!: ...` o pie `BREAKING CHANGE: ...` | MAYOR |
+| `docs:`, `chore:`, `refactor:`, `test:`, `ci:`, `style:`, `build:` | sin release |
+
+  Ejemplos: `feat(registro): agregar comidas por unidad casera`,
+  `fix(calorias): redondeo de meta diaria`. Scope opcional, descripción en español, imperativo.
+- Fuentes de la versión: `app.json > expo.version` y `package.json > version` (las sincroniza
+  `scripts/sync-app-version.js`). El número de build interno (Android `versionCode`, iOS
+  `buildNumber`) lo autoincrementa EAS (`eas.json`: `appVersionSource: "remote"`, `autoIncrement`).
+- Cada release queda con tag git `vX.Y.Z`, GitHub Release con notas y `CHANGELOG.md` generado.
+- Si haces squash-merge de un PR, el **título del PR** debe seguir Conventional Commits
+  (es el mensaje que llega a `main`).
+
+## Pipeline CI/CD (GitHub Actions)
+
+```
+PR → main ──► ci.yml: lint + typecheck (debe pasar para mergear)
+push/merge a main ──► release.yml:
+    1. ci (lint + typecheck)            ── si falla, se detiene
+    2. semantic-release                 ── calcula versión, actualiza app.json/package.json/
+                                           CHANGELOG.md, commit "chore(release): vX.Y.Z [skip ci]",
+                                           tag vX.Y.Z y GitHub Release
+    3. build-android (si hubo release)  ── `eas build --profile production` → APK adjunto al Release
+```
+
+- Archivos: `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `.releaserc.json`,
+  `eas.json`, `scripts/sync-app-version.js`.
+- Si en `main` solo hay commits `docs/chore/...` no se genera release ni build.
+- Probar localmente qué versión saldría: `npm run release:dry` (requiere Node ≥ 26.13 por
+  semantic-release; en CI ya se usa Node 26).
+- **Configuración pendiente (una sola vez, la hace un admin):**
+  1. Crear cuenta/organización en [expo.dev](https://expo.dev) y en local correr
+     `npx eas-cli@latest login` y `npx eas-cli@latest init` (agrega `extra.eas.projectId` a
+     `app.json`; commitearlo).
+  2. Crear un access token en expo.dev → *Access tokens* y guardarlo en GitHub como secret
+     `EXPO_TOKEN` (repo → Settings → Secrets and variables → Actions). Sin él, el release se
+     publica pero el build se omite con un warning.
+  3. Firma Android: en el primer `eas build` EAS genera y guarda el keystore (conservarlo).
+  4. Repo → Settings → Actions → General → *Workflow permissions*: "Read and write".
+  5. Protección de `main`: exigir que pase el check **CI / Lint y typecheck**. Si se exige PR
+     para todo push, permitir que `github-actions[bot]` haga bypass, porque semantic-release
+     sube el commit de versión a `main`.
+- Builds: perfil `production` genera **APK** (instalable directo). Para Google Play cambiar
+  `android.buildType` a `app-bundle` y usar `eas submit`. iOS requiere cuenta de Apple
+  Developer; agregar job `--platform ios` cuando exista.
+
 ## Convenciones
 
 - UI en **español**; código (nombres de variables, funciones, tipos) en **inglés**.
@@ -161,6 +232,15 @@ grises de las tablas), rotar 180° y leer las imágenes. La Tabla 2 está en la 
 ## Bitácora de cambios
 
 Formato: `AAAA-MM-DD — autor — descripción`. Lo más reciente arriba.
+(Desde 2026-11-18 el detalle por versión se genera también en `CHANGELOG.md`; aquí se
+registran decisiones y contexto que no caben en un mensaje de commit.)
+
+- **2026-11-18 — Versionamiento y pipeline (Claude Code)**
+  - Directiva SemVer 2.0.0 + Conventional Commits (sección "Versionamiento").
+  - Versión inicial `0.1.0` (tag `v0.1.0`).
+  - GitHub Actions: `ci.yml` (lint + typecheck en PRs) y `release.yml` (semantic-release +
+    EAS Build Android en cada push a `main`). `eas.json` con perfiles development/preview/production.
+  - Pendiente de configurar: proyecto EAS (`eas init`) y secret `EXPO_TOKEN`.
 
 - **2026-11-18 — SMAE y repo remoto (Claude Code)**
   - Se adopta el Sistema Mexicano de Alimentos Equivalentes (SMAE, 5a ed.) como referencia
