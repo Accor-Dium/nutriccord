@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f5ef" />
+    <title>Nutriccord</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="Nutriccord inicio">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M16 28V14M16 18c-6.5 0-9-4-9-8 6 0 9 3 9 8Zm0-3c6.5 0 9-4 9-8-6 0-9 3-9 8Z"/></svg>
+          </span>
+          <span>nutriccord</span>
+        </a>
+
+        <nav class="nav" aria-label="Navegación principal">
+          <button class="nav-item active" type="button" data-section="Resumen">
+            <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+            <span>Resumen</span>
+          </button>
+          <button class="nav-item" type="button" data-section="Diario">
+            <svg viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/></svg>
+            <span>Diario</span>
+          </button>
+          <button class="nav-item" type="button" data-section="Alimentos">
+            <svg viewBox="0 0 24 24"><path d="M12 3c5 5 7 9 7 12a7 7 0 0 1-14 0c0-3 2-7 7-12Z"/><path d="M12 21c-2-2-3-4-3-6a3 3 0 0 1 6 0c0 2-1 4-3 6Z"/></svg>
+            <span>Alimentos</span>
+          </button>
+          <button class="nav-item" type="button" data-section="Progreso">
+            <svg viewBox="0 0 24 24"><path d="M5 20V10m7 10V4m7 16v-7"/></svg>
+            <span>Progreso</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="profile" type="button" aria-label="Abrir perfil">
+            <span class="avatar">MC</span>
+            <span>
+              <strong>María Costa</strong>
+              <small>Plan básico</small>
+            </span>
+            <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Mi nutrición</p>
+            <h1 id="page-title">Resumen</h1>
+          </div>
+          <div class="top-actions">
+            <button class="icon-button" type="button" aria-label="Notificaciones">
+              <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 12h4"/></svg>
+              <span class="notification-dot"></span>
+            </button>
+            <button class="add-button" type="button" id="open-add">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Añadir alimento
+            </button>
+          </div>
+        </header>
+
+        <section class="date-row">
+          <button class="date-arrow" type="button" id="prev-day" aria-label="Día anterior">
+            <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button class="date-pill" type="button" id="date-label">
+            <svg viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/></svg>
+            <span>Hoy, 19 nov</span>
+          </button>
+          <button class="date-arrow" type="button" id="next-day" aria-label="Día siguiente">
+            <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </section>
+
+        <div class="dashboard">
+          <section class="card calorie-card">
+            <div class="card-heading">
+              <div>
+                <p class="card-label">Calorías</p>
+                <h2>Progreso diario</h2>
+              </div>
+              <button class="more-button" type="button" aria-label="Más opciones">•••</button>
+            </div>
+            <div class="calorie-content">
+              <div class="calorie-ring" id="calorie-ring" style="--progress: 64">
+                <div class="ring-center">
+                  <strong id="consumed">1.280</strong>
+                  <span>de 2.000 kcal</span>
+                </div>
+              </div>
+              <div class="calorie-details">
+                <div class="detail-row">
+                  <span class="detail-dot consumed-dot"></span>
+                  <span>Consumidas</span>
+                  <strong id="consumed-detail">1.280 kcal</strong>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-dot remaining-dot"></span>
+                  <span>Restantes</span>
+                  <strong id="remaining-detail">720 kcal</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card macros-card">
+            <div class="card-heading">
+              <div>
+                <p class="card-label">Macronutrientes</p>
+                <h2>Distribución</h2>
+              </div>
+            </div>
+            <div class="macros">
+              <div class="macro">
+                <div class="macro-top"><span>Proteínas</span><strong id="protein-text">92 g</strong></div>
+                <div class="progress-track"><div class="progress protein" id="protein-bar" style="--value: 77%"></div></div>
+                <small>Objetivo 120 g</small>
+              </div>
+              <div class="macro">
+                <div class="macro-top"><span>Carbohidratos</span><strong id="carbs-text">145 g</strong></div>
+                <div class="progress-track"><div class="progress carbs" id="carbs-bar" style="--value: 58%"></div></div>
+                <small>Objetivo 250 g</small>
+              </div>
+              <div class="macro">
+                <div class="macro-top"><span>Grasas</span><strong id="fat-text">48 g</strong></div>
+                <div class="progress-track"><div class="progress fat" id="fat-bar" style="--value: 71%"></div></div>
+                <small>Objetivo 67 g</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="meals-panel">
+            <div class="section-heading">
+              <h2>Mis comidas</h2>
+              <button type="button" id="open-add-secondary">Ver registro completo</button>
+            </div>
+            <div class="meals" id="meals">
+              <article class="meal" data-meal="Desayuno">
+                <div class="meal-icon breakfast">
+                  <svg viewBox="0 0 24 24"><path d="M4 14h16a8 8 0 0 1-16 0Zm3-4c0-2 1-3 3-3m3 3c0-2 1-3 3-3"/></svg>
+                </div>
+                <div class="meal-info">
+                  <h3>Desayuno</h3>
+                  <p><span>Avena con frutas</span> <span>Café con leche</span></p>
+                </div>
+                <strong class="meal-calories">420 kcal</strong>
+                <button class="meal-add" type="button" aria-label="Añadir al desayuno">+</button>
+              </article>
+              <article class="meal" data-meal="Almuerzo">
+                <div class="meal-icon lunch">
+                  <svg viewBox="0 0 24 24"><path d="M8 3v7m4-7v7m4-7v7M5 10h14v2a7 7 0 0 1-14 0v-2Z"/></svg>
+                </div>
+                <div class="meal-info">
+                  <h3>Almuerzo</h3>
+                  <p><span>Pollo a la plancha</span> <span>Ensalada</span></p>
+                </div>
+                <strong class="meal-calories">560 kcal</strong>
+                <button class="meal-add" type="button" aria-label="Añadir al almuerzo">+</button>
+              </article>
+              <article class="meal" data-meal="Cena">
+                <div class="meal-icon dinner">
+                  <svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 1 0 7 7c-4 0-7-3-7-7Zm-1 18h2"/></svg>
+                </div>
+                <div class="meal-info">
+                  <h3>Cena</h3>
+                  <p><span>Sin registrar</span></p>
+                </div>
+                <strong class="meal-calories">0 kcal</strong>
+                <button class="meal-add" type="button" aria-label="Añadir a la cena">+</button>
+              </article>
+              <article class="meal" data-meal="Snacks">
+                <div class="meal-icon snacks">
+                  <svg viewBox="0 0 24 24"><path d="M12 3c5 5 7 9 7 12a7 7 0 0 1-14 0c0-3 2-7 7-12Z"/></svg>
+                </div>
+                <div class="meal-info">
+                  <h3>Snacks</h3>
+                  <p><span>Yogur natural</span></p>
+                </div>
+                <strong class="meal-calories">300 kcal</strong>
+                <button class="meal-add" type="button" aria-label="Añadir snack">+</button>
+              </article>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modal" aria-hidden="true">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Nuevo registro</p>
+            <h2 id="modal-title">Añadir alimento</h2>
+          </div>
+          <button class="close-button" type="button" id="close-modal" aria-label="Cerrar">×</button>
+        </div>
+        <form id="food-form">
+          <label>
+            Alimento
+            <input id="food-name" name="food" type="text" placeholder="Ej. Manzana" required />
+          </label>
+          <div class="form-grid">
+            <label>
+              Comida
+              <select id="meal-name" name="meal">
+                <option>Desayuno</option>
+                <option>Almuerzo</option>
+                <option>Cena</option>
+                <option>Snacks</option>
+              </select>
+            </label>
+            <label>
+              Calorías
+              <input id="food-calories" name="calories" type="number" min="1" placeholder="Kcal" required />
+            </label>
+          </div>
+          <div class="form-grid three">
+            <label>Proteína <input id="food-protein" type="number" min="0" value="0" /></label>
+            <label>Carbohidratos <input id="food-carbs" type="number" min="0" value="0" /></label>
+            <label>Grasas <input id="food-fat" type="number" min="0" value="0" /></label>
+          </div>
+          <button class="submit-button" type="submit">Guardar alimento</button>
+        </form>
+      </section>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
