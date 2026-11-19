@@ -30,12 +30,12 @@ jobs:
     outputs:
       version: ${{ steps.semrel.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: npm
@@ -65,12 +65,12 @@ jobs:
         run: |
           echo "::warning::Falta el secret EXPO_TOKEN; se omite el build. Ver CLAUDE.md > Pipeline."
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.EXPO_TOKEN != ''
         with:
           ref: v${{ env.VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: env.EXPO_TOKEN != ''
         with:
           node-version: 22
@@ -79,7 +79,7 @@ jobs:
       - if: env.EXPO_TOKEN != ''
         run: npm ci
 
-      - uses: expo/expo-github-action@v8
+      - uses: expo/expo-github-action@v9
         if: env.EXPO_TOKEN != ''
         with:
           eas-version: latest
