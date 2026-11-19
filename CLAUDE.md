@@ -195,9 +195,9 @@ push/merge a main ──► release.yml:
   2. Crear un access token en expo.dev → *Access tokens* y guardarlo en GitHub como secret
      `EXPO_TOKEN` (repo → Settings → Secrets and variables → Actions). Sin él, el release se
      publica pero el build se omite con un warning.
-  3. Firma Android: el keystore se genera en un primer `eas build` **interactivo** (local:
-     `npx eas-cli@latest build -p android --profile production`), porque en modo
-     `--non-interactive` (CI) EAS no puede crearlo. Queda guardado en EAS para los builds de CI.
+  3. ✅ Hecho (2026-11-18): keystore de Android generado y guardado en los servidores de EAS
+     (credenciales remotas) con el primer build. No borrarlo: sin él no se pueden publicar
+     actualizaciones de la app en Google Play.
   4. Repo → Settings → Actions → General → *Workflow permissions*: "Read and write".
   5. Protección de `main`: exigir que pase el check **CI / Lint y typecheck**. Si se exige PR
      para todo push, permitir que `github-actions[bot]` haga bypass, porque semantic-release
