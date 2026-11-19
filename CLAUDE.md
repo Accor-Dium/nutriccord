@@ -18,7 +18,9 @@ a partir de su perfil.
 |---|---|
 | Framework | React Native **0.88** con **Expo SDK 58** |
 | Lenguaje | TypeScript (strict) |
-| Navegación | Expo Router (rutas por archivo en `src/app/`), tabs nativas (`expo-router/native-tabs`) |
+| Navegación | Expo Router (rutas por archivo en `src/app/`); tabs personalizadas con `expo-router/ui` + Stack con modales |
+| UI | Diseño propio (ver "Diseño"); gráficas con `react-native-svg`; fuentes Inter + Space Grotesk (`@expo-google-fonts`) |
+| Datos | Locales en el teléfono: `expo-sqlite/kv-store` (iOS/Android), `localStorage` (web) |
 | Animaciones | react-native-reanimated 4 |
 | React | 19.3, React Compiler activado (`app.json > experiments.reactCompiler`) |
 | Builds | EAS (`npx eas-cli@latest build`) o local con `npx expo run:android` |
@@ -46,25 +48,36 @@ Antes de dar una tarea por terminada: `npm run lint` y `npm run typecheck`.
 
 ```
 src/
-  app/              # SOLO pantallas/rutas (Expo Router)
-    _layout.tsx     # layout raíz: tema + tabs + splash
-    index.tsx       # "Hoy": meta calórica, consumo, macros, registros del día
-    foods.tsx       # "Alimentos": catálogo con búsqueda
-  components/       # componentes reutilizables (ThemedText, ThemedView, app-tabs…)
-    app-tabs.tsx      # tabs nativas (iOS/Android)
-    app-tabs.web.tsx  # tabs para web
-  constants/theme.ts  # colores (light/dark, incluye `accent`), spacing, fuentes
-  hooks/            # useTheme, useColorScheme
-  lib/calories.ts   # lógica pura de cálculo (BMR, TDEE, meta, sumas de macros)
-  lib/semver.ts     # comparar versiones SemVer
-  lib/native-release.ts # último GitHub Release con APK (aviso de versión nativa)
-  hooks/use-app-updates.ts      # detección de OTA + versión nativa nueva
-  components/update-banner.tsx  # banner "Reiniciar" / "Descargar"
-  constants/app.ts  # GITHUB_REPO, IOS_STORE_URL, intervalo de revisión
-  data/foods.ts     # catálogo semilla + perfil/registros MOCK
-  data/smae.ts      # grupos del Sistema Mexicano de Alimentos Equivalentes (Tabla 2)
-  types/nutrition.ts# tipos de dominio (UserProfile, Food, FoodEntry, Macros…)
-assets/             # íconos, splash, imágenes
+  app/                    # SOLO pantallas/rutas (Expo Router)
+    _layout.tsx           # raíz: fuentes, splash, tema, Stack (tabs + modales), banner de updates
+    (tabs)/_layout.tsx    # barra inferior: Hoy · Diario · (+) · Actividad · Progreso
+    (tabs)/index.tsx      # Hoy: anillo de kcal, macros, actividad, equivalentes, últimos 7 días
+    (tabs)/diario.tsx     # Diario: selector de día, comidas por tiempo, eliminar registros
+    (tabs)/actividad.tsx  # Registrar actividad (tipo, intensidad, minutos → kcal por MET)
+    (tabs)/progreso.tsx   # Progreso: kcal por día, peso, distribución de macros, plan SMAE
+    agregar.tsx           # Modal: buscar alimento, cantidad (porción/gramos/equivalentes), tiempo de comida
+    perfil.tsx            # Modal: perfil y metas (sexo, edad, peso, estatura, actividad, objetivo)
+  components/
+    ui/                   # sistema de diseño: text, primitives (Card, Screen, Segmented, ChipGrid,
+                          #   Stepper, ProgressBar, PrimaryButton, IconButton), icons, calorie-ring
+    activity-row.tsx      # fila de actividad registrada
+    update-banner.tsx     # banner "Reiniciar" / "Descargar"
+  constants/theme.ts      # tokens de diseño (colores light/dark, FontFamily, Spacing, Radius)
+  constants/app.ts        # GITHUB_REPO, IOS_STORE_URL, intervalo de revisión de updates
+  store/app-store.ts      # estado global persistido (perfil, registros, actividades, peso) + actions
+  hooks/                  # useTheme, useDaySummary, useWeek, useAppUpdates, useColorScheme
+  lib/calories.ts         # BMR, TDEE, meta, metas de macros, porciones, sumas
+  lib/equivalents.ts      # grupos del plan, metas y consumo de equivalentes SMAE
+  lib/activity.ts         # tipos de actividad y valores MET
+  lib/meals.ts            # tiempos de comida, texto de cantidades
+  lib/dates.ts            # fechas locales ISO y formatos en español
+  lib/storage(.web).ts    # key-value persistente (SQLite / localStorage)
+  lib/semver.ts, lib/native-release.ts  # aviso de versión nativa nueva
+  data/foods.ts           # catálogo de ~55 alimentos con grupo SMAE, porción casera y equivalente
+  data/smae.ts            # grupos del Sistema Mexicano de Alimentos Equivalentes (Tabla 2)
+  types/nutrition.ts      # tipos de dominio (UserProfile, Food, FoodEntry, ActivityEntry…)
+assets/                   # íconos, splash, imágenes
+.claude/launch.json       # `web`: servidor de Expo web para previsualizar
 scripts/sync-app-version.js  # sincroniza versión en app.json y package.json (release)
 .github/workflows/  # ci.yml y release.yml (pipeline)
 .releaserc.json     # configuración de semantic-release
@@ -81,9 +94,38 @@ Alias de import: `@/*` → `src/*`, `@/assets/*` → `assets/*`.
   - Hombre: `10·kg + 6.25·cm − 5·edad + 5`
   - Mujer: `10·kg + 6.25·cm − 5·edad − 161`
 - **TDEE** = BMR × factor de actividad (1.2 / 1.375 / 1.55 / 1.725 / 1.9).
-- **Meta diaria** = TDEE + ajuste por objetivo (bajar −500, mantener 0, subir +300 kcal).
-- Comidas (`MealType`): desayuno, comida, cena, colación.
-- Fechas de registros en formato ISO `yyyy-mm-dd`.
+- **Meta diaria** = TDEE + ajuste por objetivo (bajar −500, mantener 0, subir +300 kcal),
+  redondeada a 10 kcal.
+- **Calorías restantes** = meta − comido + ejercicio (`remainingKcal`).
+- **Metas de macros**: 25 % proteína, 45 % carbohidratos, 30 % grasa de la meta
+  (4/4/9 kcal por gramo) — `MACRO_SPLIT`, `macroGoals`.
+- **Actividad física**: kcal = MET × peso (kg) × minutos ÷ 60, con el peso del perfil.
+  Tabla MET por tipo e intensidad en `lib/activity.ts`.
+- **Cantidades**: se capturan en porción casera (pieza, taza…), gramos o equivalentes SMAE y se
+  guardan siempre convertidas a gramos (`amountToGrams`), junto con la unidad original.
+- **Equivalentes por día**: plan base de ~1,880 kcal (cereales 7, verduras 4, frutas 3, origen
+  animal 7, leguminosas 2, leche 2, grasas 5, azúcares 1) escalado a la meta y redondeado a ½.
+  Consumo = gramos ÷ gramos por equivalente del alimento.
+- **Peso**: un registro por día; guardar el perfil con otro peso también lo registra.
+- Comidas (`MealType`): desayuno, comida, colación, cena (en ese orden en la UI).
+- Fechas de registros en formato ISO `yyyy-mm-dd`, hora local.
+- **Persistencia**: todo el estado vive en `store/app-store.ts` bajo la llave
+  `nutriccord:state` (`version: 1`). Si cambia la forma de los datos, subir `STORAGE_VERSION`
+  y migrar en `load()`; borrar datos de usuarios es un cambio MAYOR.
+
+## Diseño
+
+- Fuente de verdad: lienzo **"Nutriccord App"** en claude.ai
+  (`https://claude.ai/artifact/5K9H4PmsPikQKrezasDCRT`), pantallas Hoy, Diario, Agregar,
+  Actividad y Progreso. La app agrega la pantalla de Perfil con el mismo estilo.
+- Tokens en `constants/theme.ts`: fondo `#F5F6F2`, tarjetas blancas radio 20, verde primario
+  `#1A6B43`, actividad naranja `#A84A0C`; proteína azul, carbohidratos mostaza, grasa magenta.
+  Modo oscuro definido con los mismos roles.
+- Tipografía: Inter (texto) y Space Grotesk (títulos y números), vía `components/ui/text.tsx`
+  (`variant`). En Android los pesos se eligen por familia (`Inter_700Bold`…), no con `fontWeight`.
+- Texto siempre con `<Text variant color>` de `components/ui/text`; colores solo por token.
+- Accesibilidad: objetivos táctiles ≥ 44 px, `accessibilityRole`/`accessibilityLabel` en
+  botones de ícono, radios y pestañas.
 
 ## Sistema de equivalentes (SMAE)
 
@@ -247,31 +289,46 @@ La app se actualiza sola; nadie debería tener que bajar el APK a mano en cada r
 - UI en **español**; código (nombres de variables, funciones, tipos) en **inglés**.
 - Lógica de negocio pura en `src/lib/` (sin React), para poder testearla aislada.
 - Nada que no sea ruta dentro de `src/app/`.
-- Usar `ThemedText` / `ThemedView` / `useTheme()` para respetar modo claro/oscuro;
-  colores nuevos van en `constants/theme.ts` (en `light` y `dark`).
+- Usar `Text` y los componentes de `components/ui/` con `useTheme()` para respetar modo
+  claro/oscuro; colores nuevos van en `constants/theme.ts` (en `light` y `dark`).
+- Con `Link asChild` / `TabTrigger asChild` de Expo Router, el hijo debe recibir estilos
+  planos (`StyleSheet.flatten`), no arreglos ni funciones de estilo.
+- Web usa `web.output: "single"` (SPA): el estado viene de `localStorage` y un render en
+  servidor causaría diferencias de hidratación.
 - No crear/editar `android/` ni `ios/` a mano (Continuous Native Generation);
   configurar vía `app.json` y config plugins.
 
 ## Estado actual / pendientes
 
 - [x] Base Expo + Expo Router + TypeScript
-- [x] Pantalla "Hoy" y "Alimentos" con datos **mock**
-- [x] Lógica de cálculo de calorías/macros
-- [ ] Onboarding / pantalla de perfil (edad, peso, estatura, actividad, objetivo)
-- [ ] Persistencia local (p. ej. `expo-sqlite`)
-- [ ] Flujo para agregar/editar/eliminar registros de comida
-- [ ] Asignar grupo SMAE y porción equivalente a cada alimento; vista de equivalentes por grupo
-- [ ] Capturar las listas de alimentos del SMAE como catálogo local
-- [ ] Base de datos de alimentos real (local o API) y escaneo de código de barras (`expo-camera`)
-- [ ] Historial y gráficas por día/semana
-- [ ] Ícono propio para la tab "Alimentos" (hoy reutiliza `tabIcons/explore.png`) y branding/ícono de app
-- [ ] Tests unitarios para `src/lib/calories.ts`
+- [x] Lógica de cálculo de calorías/macros, actividad (MET) y equivalentes SMAE
+- [x] Pantallas del diseño: Hoy, Diario, Agregar, Actividad, Progreso + Perfil
+- [x] Persistencia local (`expo-sqlite/kv-store`)
+- [x] Agregar y eliminar registros de comida y de actividad; registro de peso
+- [x] Grupo SMAE, porción casera y equivalente por alimento; vista de equivalentes por grupo
+- [ ] Editar un registro existente (hoy solo se elimina y se vuelve a agregar)
+- [ ] Capturar las listas completas de alimentos del SMAE como catálogo local (hoy ~55)
+- [ ] Alimentos personalizados del usuario y escaneo de código de barras (`expo-camera`)
+- [ ] Historial más allá de 7 días (mes, tendencias)
+- [ ] Ícono y splash propios de Nutriccord (hoy son los del template)
+- [ ] Tests unitarios para `src/lib/` (calories, equivalents, activity, dates)
 
 ## Bitácora de cambios
 
 Formato: `AAAA-MM-DD — autor — descripción`. Lo más reciente arriba.
 (Desde 2026-11-18 el detalle por versión se genera también en `CHANGELOG.md`; aquí se
 registran decisiones y contexto que no caben en un mensaje de commit.)
+
+- **2026-11-18 — Implementación del diseño "Nutriccord App" (Claude Code)**
+  - Nueva navegación: tabs personalizadas (`expo-router/ui`) con botón central "+" y modales
+    `agregar` y `perfil` en un Stack. Se eliminaron `foods.tsx`, las NativeTabs y los
+    componentes del template (`themed-*`, `animated-icon`, `external-link`, `global.css`).
+  - Pantallas Hoy, Diario, Agregar, Actividad, Progreso y Perfil según el diseño.
+  - Estado global persistido (`store/app-store.ts`) en SQLite key-value; sin datos mock.
+  - Catálogo de ~55 alimentos con grupo SMAE, porción casera y gramos por equivalente.
+  - Dependencias nuevas: `react-native-svg`, `expo-sqlite`, `@expo-google-fonts/inter`,
+    `@expo-google-fonts/space-grotesk` (cambio nativo → el pipeline compila APK nuevo).
+  - `web.output` cambiado a `single` para evitar errores de hidratación en web.
 
 - **2026-11-18 — Actualizaciones automáticas (Claude Code)**
   - `expo-updates` + EAS Update (canales development/preview/production en `eas.json`),

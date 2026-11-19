@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Card, Row } from '@/components/ui/primitives';
+import { Text } from '@/components/ui/text';
+import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useAppUpdates } from '@/hooks/use-app-updates';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -37,26 +37,33 @@ export function UpdateBanner() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.wrapper} pointerEvents="box-none">
-      <ThemedView type="backgroundElement" style={styles.banner}>
-        <View style={styles.text}>
-          <ThemedText type="smallBold">{content.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {content.body}
-          </ThemedText>
-        </View>
-        <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityLabel="Cerrar aviso">
-          <ThemedText type="small" themeColor="textSecondary">
-            Después
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          onPress={content.onPress}
-          style={({ pressed }) => [styles.button, { backgroundColor: theme.accent }, pressed && styles.pressed]}>
-          <ThemedText type="smallBold" style={styles.buttonText}>
-            {content.action}
-          </ThemedText>
-        </Pressable>
-      </ThemedView>
+      <Card style={[styles.banner, { boxShadow: `0 4px 16px ${theme.shadow}` }]}>
+        <Row>
+          <View style={styles.text}>
+            <Text variant="bodyBold">{content.title}</Text>
+            <Text variant="caption" color="textSecondary">
+              {content.body}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDismissed(true)}
+            hitSlop={8}
+            style={styles.later}>
+            <Text variant="small" color="textSecondary">
+              Después
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={content.onPress}
+            style={({ pressed }) => [styles.button, { backgroundColor: theme.primary }, pressed && { opacity: 0.8 }]}>
+            <Text variant="bodyBold" color="onPrimary">
+              {content.action}
+            </Text>
+          </Pressable>
+        </Row>
+      </Card>
     </SafeAreaView>
   );
 }
@@ -68,30 +75,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.four,
   },
   banner: {
     width: '100%',
     maxWidth: MaxContentWidth,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    padding: Spacing.four,
     marginTop: Spacing.two,
   },
-  text: {
-    flex: 1,
-  },
+  text: { flex: 1 },
+  later: { minHeight: 44, justifyContent: 'center' },
   button: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  buttonText: {
-    color: '#ffffff',
-  },
-  pressed: {
-    opacity: 0.7,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    borderRadius: Radius.md,
   },
 });
